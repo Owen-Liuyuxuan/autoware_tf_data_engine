@@ -6,7 +6,7 @@ from matplotlib.patches import Rectangle
 from typing import Dict, List, Optional
 import os
 
-from autoware_perception_msgs.msg import TrackedObjects
+from autoware_perception_msgs.msg import PredictedObjects
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Pose
 import pygame
@@ -198,7 +198,7 @@ class BaseStepEngine:
         else:
             self.visualizer = None
 
-    def process_objects(self, msg: TrackedObjects):
+    def process_objects(self, msg: PredictedObjects):
         """Base Step Engine focuses on ego steps"""
         self.object_tracker.step_objects(msg, self.current_step)
 

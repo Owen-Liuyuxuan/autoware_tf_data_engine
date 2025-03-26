@@ -13,7 +13,7 @@ from map_preprocessor.map_manager import MapManager
 from object_tracker.base_object_tracker import BaseTracker
 from step_engine.base_step_engine import BaseStepEngine
 
-from autoware_perception_msgs.msg import TrackedObjects
+from autoware_perception_msgs.msg import PredictedObjects
 from nav_msgs.msg import Odometry
 
 
@@ -81,7 +81,7 @@ class BagExtractor:
         self.reader.open(storage_options, converter_options)
         self.reader.set_filter(storage_filter)
 
-    def extract_neighbouring_objects(self, msg: TrackedObjects):
+    def extract_neighbouring_objects(self, msg: PredictedObjects):
         """Extract information about neighbouring objects"""
         # Implement object extraction logic
         # Example: position, velocity, classification, etc.
