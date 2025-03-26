@@ -15,8 +15,8 @@ This tool extracts critical information from ROS bags including:
 
 ## Features
 
-- [ ] **Comprehensive Data Extraction**: Processes ROS bags to extract object tracking, ego vehicle positioning, and map data (WIP, currently only visualize and deal with "road" elements.)
-- [ ] **Map Processing**: Integrates with Lanelet2 maps to provide contextual road network information (WIP, currently only visualize and deal with "road" elements.)
+- [ ] **Comprehensive Data Extraction**: Processes ROS bags to extract object tracking, ego vehicle positioning, and map data (WIP, currently only visualize and deal with all lanelet elements.)
+- [ ] **Map Processing**: Integrates with Lanelet2 maps to provide contextual road network information (WIP, currently only visualize and deal with lanelet elements.)
 - [ ] **Object Tracking**: Maintains object state information for surrounding vehicles and obstacles (WIP, currently only record and utilize the current tracked objects)
 - [x] **Trajectory Analysis**: Captures both historical and predicted future trajectories
 - [x] **Visualization**: Optional visualization of extracted scenes with pygame-based renderer

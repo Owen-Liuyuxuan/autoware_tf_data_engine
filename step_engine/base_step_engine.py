@@ -96,21 +96,21 @@ class SceneVisualizer:
     def _draw_map_elements(self, map_elements: List, routes: List):
         """Draw map elements"""
         for element in map_elements:
-            if element.attributes["subtype"] == "road":
-                color = Colors.GREEN if element.id in routes else Colors.GRAY
-                width = 2 if element.id in routes else 1
-                
-                # Draw left boundary
-                points = np.array([(p.x, p.y) for p in element.leftBound])
-                screen_points = [self.world_to_screen(x, y) for x, y in points]
-                if len(screen_points) > 1:
-                    pygame.draw.lines(self.screen, color, False, screen_points, width)
-                
-                # Draw right boundary
-                points = np.array([(p.x, p.y) for p in element.rightBound])
-                screen_points = [self.world_to_screen(x, y) for x, y in points]
-                if len(screen_points) > 1:
-                    pygame.draw.lines(self.screen, color, False, screen_points, width)
+            # if element.attributes["subtype"] == "road":
+            color = Colors.GREEN if element.id in routes else Colors.GRAY
+            width = 2 if element.id in routes else 1
+            
+            # Draw left boundary
+            points = np.array([(p.x, p.y) for p in element.leftBound])
+            screen_points = [self.world_to_screen(x, y) for x, y in points]
+            if len(screen_points) > 1:
+                pygame.draw.lines(self.screen, color, False, screen_points, width)
+            
+            # Draw right boundary
+            points = np.array([(p.x, p.y) for p in element.rightBound])
+            screen_points = [self.world_to_screen(x, y) for x, y in points]
+            if len(screen_points) > 1:
+                pygame.draw.lines(self.screen, color, False, screen_points, width)
 
     def _draw_ego_trajectory(self, history: Dict, future: Dict):
         """Draw ego vehicle trajectory"""
