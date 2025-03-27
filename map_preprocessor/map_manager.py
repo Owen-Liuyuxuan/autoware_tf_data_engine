@@ -6,11 +6,12 @@ This module defines a function that manages the map and global path
 import os
 from autoware_planning_msgs.msg import LaneletRoute
 from geometry_msgs.msg import Pose
+from queue import Queue
 
 import lanelet2
 from autoware_lanelet2_extension_python.utility import load_info_from_yaml, MapProjectorInfo
-from autoware_lanelet2_extension_python.projection import MGRSProjector
-
+from autoware_lanelet2_extension_python.projection import MGRSProjector, TransverseMercatorProjector
+from autoware_perception_msgs.msg import TrafficLightGroupArray
 
 def automatic_find_projector_yaml(map_path):
     """in the same directory with the name projector_info.yaml"""
@@ -73,8 +74,10 @@ def get_lanelet2_projector(projector_info: MapProjectorInfo):
         return lanelet2.projection.LocalCartesianProjector(origin)
 
 class MapManager:
-    def __init__(self, map_path, local_map_range=80.0):
+    def __init__(self, map_path, local_map_range=80.0, look_ahead_step=30):
         self.map_path = map_path
+        self.look_ahead_step = look_ahead_step
+
         self.projector_yaml = automatic_find_projector_yaml(map_path)
         if self.projector_yaml is None:
             self.projector = MGRSProjector(lanelet2.io.Origin(0.0, 0.0))
@@ -92,6 +95,38 @@ class MapManager:
         self.global_path = []
         self.local_map_range = local_map_range
 
+        self.traffic_light_messages = Queue(look_ahead_step)
+        self.latest_access = -1
+
+        self.latest_traffic_light_messages = {}
+
+    def step_traffic_light_message(self, msg:TrafficLightGroupArray):
+        data = dict()
+        data["stamp"] = msg.stamp
+        data["elements"] = {}
+        for traffic_light_group in msg.traffic_light_groups:
+            group_id = traffic_light_group.traffic_light_group_id
+            elements = traffic_light_group.elements
+            data["elements"][group_id] = []
+            for i, element in enumerate(elements):
+                data["elements"][group_id].append({
+                    "color": element.color,
+                    "shape": element.shape,
+                    "status": element.status,
+                    "confidence": element.confidence
+                })
+        if self.traffic_light_messages.full():
+            self.latest_traffic_light_messages = self.traffic_light_messages.get()
+
+        self.traffic_light_messages.put(data["elements"])
+
+    
+    def _get_traffic_light(self, lanelet):
+        lights = lanelet.trafficLights()
+        if len(lights) == 0:
+            return -1
+        return lights[0].id
+
     def set_global_path(self, msgs:LaneletRoute):
         self.global_path = [segment.preferred_primitive.id for segment in msgs.segments]
 
@@ -107,10 +142,13 @@ class MapManager:
         )
         nearby_lanelets =  self.map_object.laneletLayer.search(search_bounding_box)
         nearby_lanelets_ids = [lanelet.id for lanelet in nearby_lanelets]
+        associated_traffic_light_ids = [self._get_traffic_light(lanelet) for lanelet in nearby_lanelets]
+        current_traffic_light_status = self.latest_traffic_light_messages # latest for the target frame
 
         nearby_global_path = []
         for lanelet_id in self.global_path:
             if lanelet_id in nearby_lanelets_ids:
                 nearby_global_path.append(lanelet_id)
 
-        return {"map_elements": nearby_lanelets, "routes": nearby_global_path, "nearby_lanelets_ids": nearby_lanelets_ids}
+        return {"map_elements": nearby_lanelets, "routes": nearby_global_path, "nearby_lanelets_ids": nearby_lanelets_ids, 
+                "associated_traffic_light_ids": associated_traffic_light_ids, "current_traffic_light_status": current_traffic_light_status}

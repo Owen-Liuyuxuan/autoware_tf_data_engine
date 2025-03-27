@@ -15,12 +15,15 @@ from step_engine.base_step_engine import BaseStepEngine
 
 from autoware_perception_msgs.msg import PredictedObjects
 from nav_msgs.msg import Odometry
+import yaml
+import subprocess
 
 
 class BagExtractor:
-    def __init__(self, bag_path: str, map_path: str, output_path: str):
+    def __init__(self, bag_path: str, map_path: str, output_path: str, vehicle_type: str):
         self.bag_path = bag_path
         self.output_path = output_path
+        self.vehicle_type = vehicle_type
 
         # Define topics to extract
         self.topics = {
@@ -30,6 +33,9 @@ class BagExtractor:
             "local_plan": "/planning/scenario_planning/trajectory",
             "traffic_light": "/perception/traffic_light_recognition/traffic_signals",
         }
+
+        self.vehicle_params = self.get_vehicle_parameters()
+        self.local_ego_footprint = self.compute_local_ego_footprint()
 
         self.trace_back_step = 10  # Number of steps to look back in history
         self.look_ahead_steps = 30  # Number of steps to look ahead in future
@@ -45,6 +51,8 @@ class BagExtractor:
 
         # Storage for extracted data
         self.extracted_data = {}
+        self.extracted_data["vehicle_params"] = self.vehicle_params
+        self.extracted_data["lanelet2_map"] = map_path
 
         self.map_manager = MapManager(map_path)
         self.object_tracker = BaseTracker(self.trace_back_step, self.look_ahead_steps)
@@ -57,6 +65,73 @@ class BagExtractor:
             enable_visualization=True,
             visualization_path="temp_vis",
         )
+    
+    def get_vehicle_parameters(self):
+        """
+        Find the vehicle description package path and extract vehicle parameters
+        from the vehicle_info.param.yaml file.
+        """
+        # Find the package path using ros2 command
+        cmd = f"ros2 pkg prefix {self.vehicle_type}_description"
+        package_path = subprocess.check_output(cmd, shell=True).decode().strip()
+        
+        # Construct path to the vehicle_info.param.yaml file
+        yaml_path = os.path.join(package_path, "share", f"{self.vehicle_type}_description", 
+                                "config", "vehicle_info.param.yaml")
+        
+        # Read and parse the YAML file
+        with open(yaml_path, 'r') as file:
+            vehicle_info = yaml.safe_load(file)
+        
+        # Extract the required parameters
+        params = {}
+        vehicle_data = vehicle_info.get('/**', {}).get('ros__parameters', {})
+        
+        # Extract wheel base, max steering angle, and overhangs
+        params['wheel_base'] = vehicle_data.get('wheel_base', 0.0)
+        params['max_steer_angle'] = vehicle_data.get('max_steer_angle', 0.0)
+        params['front_overhang'] = vehicle_data.get('front_overhang', 0.0)
+        params['rear_overhang'] = vehicle_data.get('rear_overhang', 0.0)
+        params['left_overhang'] = vehicle_data.get('left_overhang', 0.0)
+        params['right_overhang'] = vehicle_data.get('right_overhang', 0.0)
+        
+        print(f"Successfully loaded vehicle parameters for {self.vehicle_type}")
+        return params
+    
+    def compute_local_ego_footprint(self):
+        """
+        Compute the local ego footprint as a rectangle based on vehicle parameters.
+        Returns a list of points representing the rectangle corners in local coordinates.
+        """
+        # Extract parameters
+        front_overhang = self.vehicle_params['front_overhang']
+        rear_overhang = self.vehicle_params['rear_overhang']
+        left_overhang = self.vehicle_params['left_overhang']
+        right_overhang = self.vehicle_params['right_overhang']
+        wheel_base = self.vehicle_params['wheel_base']
+        
+        # Calculate vehicle dimensions
+        length = front_overhang + wheel_base + rear_overhang
+        width = left_overhang + right_overhang
+        
+        # Calculate the center offset from the rear axle
+        center_x = wheel_base / 2 - rear_overhang
+        
+        # Calculate the four corners of the rectangle (counter-clockwise from rear-right)
+        # Assuming the vehicle's rear axle is at (0,0) and the vehicle is facing the positive x-axis
+        footprint = [
+            # Rear right
+            [center_x - length/2, -width/2],
+            # Rear left
+            [center_x - length/2, width/2],
+            # Front left
+            [center_x + length/2, width/2],
+            # Front right
+            [center_x + length/2, -width/2]
+        ]
+        
+        print(f"Local ego footprint computed: {footprint}")
+        return footprint
 
     def open_bag(self):
         """Initialize and open the rosbag with topic filtering"""
@@ -106,6 +181,8 @@ class BagExtractor:
             return self.extract_current_position(msg)
         elif topic_name == self.topics["global_plan"]:
             return self.map_manager.set_global_path(msg)
+        elif topic_name == self.topics["traffic_light"]:
+            return self.map_manager.step_traffic_light_message(msg)
 
     def extract_data(self):
         """Main extraction loop"""
@@ -137,7 +214,8 @@ class BagExtractor:
                 selected_keys = ["frame", "objects",
                                   "history_trajectories_transform_list", "future_trajectories_transform_list",
                                   "history_trajectories_speed_list", "future_trajectories_speed_list",
-                                   "routes", "nearby_lanelets_ids"]
+                                   "routes", "nearby_lanelets_ids", "associated_traffic_light_ids",
+                                   "current_traffic_light_status"]
                 self.extracted_data[frame] = {}
                 for key in selected_keys:
                     self.extracted_data[frame][key] = return_data_dict[key]
@@ -159,15 +237,16 @@ class BagExtractor:
 
 
 def main():
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 5:
         print("Usage: python3 extract_bag.py <bag_path> <map_path> <output_path>")
         sys.exit(1)
 
     bag_path = sys.argv[1]
     map_path = sys.argv[2]
     output_path = sys.argv[3]
+    vehicle_type = sys.argv[4]
 
-    extractor = BagExtractor(bag_path, map_path, output_path)
+    extractor = BagExtractor(bag_path, map_path, output_path, vehicle_type)
     extractor.extract_data()
     extractor.save_results()
 

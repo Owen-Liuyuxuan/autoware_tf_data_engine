@@ -6,7 +6,7 @@ from matplotlib.patches import Rectangle
 from typing import Dict, List, Optional
 import os
 
-from autoware_perception_msgs.msg import PredictedObjects
+from autoware_perception_msgs.msg import PredictedObjects, TrafficLightGroupArray
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Pose
 import pygame

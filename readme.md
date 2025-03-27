@@ -15,12 +15,14 @@ This tool extracts critical information from ROS bags including:
 
 ## Features
 
-- [ ] **Comprehensive Data Extraction**: Processes ROS bags to extract object tracking, ego vehicle positioning, and map data (WIP, currently only visualize and deal with all lanelet elements.)
-- [ ] **Map Processing**: Integrates with Lanelet2 maps to provide contextual road network information (WIP, currently only visualize and deal with lanelet elements.)
+- [x] **Comprehensive Data Extraction**: Processes ROS bags to extract object tracking, ego vehicle positioning, traffic_light and map data (WIP, currently only visualize and deal with all lanelet elements.)
+- [x] **Map Processing**: Integrates with Lanelet2 maps to provide contextual road network information (WIP, currently not supporting lanelet2 polygon)
 - [ ] **Object Tracking**: Maintains object state information for surrounding vehicles and obstacles (WIP, currently only record and utilize the current tracked objects)
+- [x] **Traffic Light Information**: Record the most recent traffic light information at each key frame.
+- [x] **Meta Information**: Record the vehicle informations and the lanelet2 maps information used for each sequences of bags.
 - [x] **Trajectory Analysis**: Captures both historical and predicted future trajectories
 - [x] **Visualization**: Optional visualization of extracted scenes with pygame-based renderer
-- [ ] **Frame Selection**: Intelligent key frame selection to reduce redundancy in the dataset
+- [x] **Frame Selection**: Constant skipping frame selection to reduce redundancy in the dataset
 
 ## Requirements
 
@@ -43,13 +45,14 @@ source /path/to/lanelet2_python_api_for_autoware/setup.bash
 Run the extraction tool using the provided shell script:
 
 ```bash
-./main.sh <rosbag_path> <osm_map_path> <output_path>
+./main.sh <rosbag_path> <osm_map_path> <output_path> <vehicle_model>
 ```
 
 ### Parameters:
 - `<rosbag_path>`: Path to the ROS bag file containing driving data
 - `<osm_map_path>`: Path to the OSM/Lanelet2 map file (.osm)
 - `<output_path>`: Directory where extracted data will be saved
+- `<vehicle_model>`: Vehicle model name used in autoware, which will be used to find the `vehicle_info.yaml`
 
 ## Architecture
 
@@ -57,7 +60,7 @@ The engine consists of several key components:
 
 1. **BagExtractor**: Main class that processes ROS bags and orchestrates the extraction process
 2. **BaseStepEngine**: Controls the extraction flow and key frame selection
-3. **MapManager**: Handles map loading and processing, providing local map information
+3. **MapManager**: Handles map loading and processing, providing local map information and traffic light information
 4. **BaseTracker**: Processes object detection messages and maintains object state
 5. **SceneVisualizer**: Optional component for visualizing the extracted scenes
 
@@ -65,6 +68,8 @@ The engine consists of several key components:
 
 The extracted data is saved in a structured format containing:
 
+- Ego vehicle and map meta information
+- Traffic light information
 - Frame information
 - Object detection data (position, velocity, type)
 - Ego vehicle trajectory (past and future)
