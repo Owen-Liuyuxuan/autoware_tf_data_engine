@@ -100,6 +100,28 @@ Json file structure:
     future_trajectories_speed_list: [N_f, 3], future speed of the vehicle in the world frame. N=30,
     routes: [], list of lanelet2 id that is route of the vehicle in the neighborhood.
     nearby_lanelets_ids: [], list of lanelet2 id that is nearby the vehicle in the neighborhood.
+    associated_traffic_light_ids: [], each lanelet has one corresponding traffic light id, unless the id is -1.
+    current_traffic_light_status:{  # latest perception traffic_light
+      group_id:[  # the id is the same stuffs with the above
+        {   ## https://docs.ros.org/en/humble/p/autoware_perception_msgs/msg/TrafficLightElement.html
+          "color": int,
+          "shape": int,
+          "status": int,
+          "confidence": float,
+        },
+        {}
+      ]
+    }
+  }
+  lanelet2_map # string of full path towards the map being used.
+  vehicle_params: {  # all parameters are same with the vehicle_info definitions
+    wheel_base 
+    max_steer_angle
+    wheel_base
+    front_overhang
+    rear_overhang
+    left_overhang
+    right_overhang
   }
 """
 ```
