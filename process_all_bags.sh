@@ -40,6 +40,7 @@ for bag_dir in "$DATA_DIR"/*/ ; do
         # Run the main.sh script with the appropriate arguments
         bash ~/map_test/lanelet2_python_api_for_autoware/extract_bags/main.sh "$bag_dir" "$OSM_MAP_PATH" "$OUTPUT_BASE_PATH" "$VEHICLE_MODEL"
         
+        sleep 3
         echo "Finished processing: $bag_dir"
         echo "------------------------"
     fi

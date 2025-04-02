@@ -104,7 +104,7 @@ class BaseTracker:
         self.buffer_size = trace_back_step + look_ahead_steps
         
         # Current frame objects
-        self.all_time_objects: Dict[int, List[CurrentFrameObject]] = dict()
+        self.neighbouring_objects: Queue=Queue(maxsize=self.buffer_size)
         
         # Ego vehicle state history (still needed for trajectory extraction)
         self.ego_transforms: Queue = Queue(maxsize=self.buffer_size)
@@ -118,12 +118,17 @@ class BaseTracker:
         self.current_timestamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         
         # Clear previous frame objects
-        self.all_time_objects[current_step] = []
+        latest_data = []
         
         # Process new objects
         for tracked_obj in msg.objects:
             obj = CurrentFrameObject(tracked_obj)
-            self.all_time_objects[current_step].append(obj)
+            latest_data.append(obj)
+        
+        if self.neighbouring_objects.full():
+            self.neighbouring_objects.get()
+        
+        self.neighbouring_objects.put(latest_data)
 
     def step_ego_pose(self, msg: Odometry):
         """Update ego vehicle state"""
@@ -154,27 +159,26 @@ class BaseTracker:
         ego_transforms = list(self.ego_transforms.queue)
         ego_velocities = list(self.ego_velocities.queue)
         ego_timestamps = list(self.ego_timestamps.queue)
+
+        neighbouring_objects = list(self.neighbouring_objects.queue)
         
         # Process current frame objects
         output_objects = []
 
         ## try latest objects in buffer, with a max of 4 frames untill keyframe in objects
-        for i in range(4):
-            if keyframe - i in self.all_time_objects:
-                for obj in self.all_time_objects[keyframe - i]:
-                    ego_xyz = (ego_transforms[-self.look_ahead_steps] @ np.array([0, 0, 0, 1]))[:3]
-                    distance_ego_object = np.linalg.norm(ego_xyz - obj.transform[:3, 3])
-                    if distance_ego_object > 80:
-                        continue
-                    output_objects.append({
-                        "id": obj.uuid,
-                        "type": obj.object_type,
-                        "transform": obj.transform.tolist(),
-                        "velocity": obj.velocity.tolist(),
-                        "footprint": obj.footprint.tolist(),
-                        "global_footprint": obj.global_footprint.tolist()
-                    })
-                break
+        for obj in neighbouring_objects[self.trace_back_step]:
+            ego_xyz = (ego_transforms[-self.look_ahead_steps] @ np.array([0, 0, 0, 1]))[:3]
+            distance_ego_object = np.linalg.norm(ego_xyz - obj.transform[:3, 3])
+            if distance_ego_object > 80:
+                continue
+            output_objects.append({
+                "id": obj.uuid,
+                "type": obj.object_type,
+                "transform": obj.transform.tolist(),
+                "velocity": obj.velocity.tolist(),
+                "footprint": obj.footprint.tolist(),
+                "global_footprint": obj.global_footprint.tolist()
+            })
             
         return {
             "timestamp": self.current_timestamp,
