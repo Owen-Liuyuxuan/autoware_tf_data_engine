@@ -44,10 +44,15 @@ class BagExtractor:
         self.ego_state_small_counter = 0
 
         # if the bag path is a directory, use the directory name as the bag_name
+        print(bag_path)
         if os.path.isdir(bag_path):
-            self.bag_name = os.path.basename(bag_path)
+            if bag_path.endswith("/"):
+                self.bag_name = os.path.basename(os.path.dirname(bag_path))
+            else:
+                self.bag_name = os.path.basename(bag_path)
         else:
             self.bag_name = os.path.splitext(os.path.basename(bag_path))[0]  # Extract the bag name without extension
+        print(f"bag_name={self.bag_name}")
 
         # Storage for extracted data
         self.extracted_data = {}
