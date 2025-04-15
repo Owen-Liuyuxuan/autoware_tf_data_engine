@@ -172,7 +172,7 @@ class BaseStepEngine:
         object_tracker,
         map_preprocessor,
         trace_back_step=10,
-        look_ahead_steps=30,
+        look_ahead_steps=80,
         key_frame_step=5,
         enable_visualization=False,
         visualization_path=None,

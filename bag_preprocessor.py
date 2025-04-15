@@ -38,7 +38,7 @@ class BagExtractor:
         self.local_ego_footprint = self.compute_local_ego_footprint()
 
         self.trace_back_step = 10  # Number of steps to look back in history
-        self.look_ahead_steps = 30  # Number of steps to look ahead in future
+        self.look_ahead_steps = 80  # Number of steps to look ahead in future
         self.key_frame_step = 5  # Step size for key frames
         self.ego_state_skip_frame = 5
         self.ego_state_small_counter = 0

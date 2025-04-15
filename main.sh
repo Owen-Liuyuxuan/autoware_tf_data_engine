@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Source the required setup files
+source /home/ukenryu/pilot-auto.x2/install/setup.bash
 source /home/ukenryu/pilot-auto.xx1/install/setup.bash
 source /home/ukenryu/map_test/lanelet2_python_api_for_autoware/setup.bash
 

@@ -98,7 +98,7 @@ class CurrentFrameObject:
         return global_points_h[:, :3]
 
 class BaseTracker:
-    def __init__(self, trace_back_step=10, look_ahead_steps=30):
+    def __init__(self, trace_back_step=10, look_ahead_steps=80):
         self.trace_back_step = trace_back_step
         self.look_ahead_steps = look_ahead_steps
         self.buffer_size = trace_back_step + look_ahead_steps
