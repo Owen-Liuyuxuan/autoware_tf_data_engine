@@ -49,8 +49,7 @@ class BagRecorder(Node):
                 self.stop_recording()
             # Start a new recording
             self.start_recording()
-        
-        if msg.state > 5 and msg.state < 4:
+        else:
             if self.recording_active:
                 self.stop_recording()
 
