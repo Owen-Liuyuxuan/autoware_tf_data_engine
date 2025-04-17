@@ -110,8 +110,35 @@ class BaseTracker:
         self.ego_transforms: Queue = Queue(maxsize=self.buffer_size)
         self.ego_velocities: Queue = Queue(maxsize=self.buffer_size)
         self.ego_timestamps: Queue = Queue(maxsize=self.buffer_size)
+        self.operation_modes: Queue = Queue(maxsize=self.buffer_size)
+        self.vehicle_states: Queue = Queue(maxsize=self.buffer_size)
         
         self.current_timestamp: Optional[float] = None
+
+    def step_operation_mode(self, msg):
+        # constants for mode
+        # uint8 UNKNOWN = 0
+        # uint8 STOP = 1
+        # uint8 AUTONOMOUS = 2
+        # uint8 LOCAL = 3
+        # uint8 REMOTE = 4
+        if self.operation_modes.full():
+            self.operation_modes.get()
+        self.operation_modes.put(msg.mode)
+        
+
+    def step_vehicle_state(self, msg):
+        # constants for mode
+        # uint8 NO_COMMAND = 0
+        # uint8 AUTONOMOUS = 1
+        # uint8 AUTONOMOUS_STEER_ONLY = 2
+        # uint8 AUTONOMOUS_VELOCITY_ONLY = 3
+        # uint8 MANUAL = 4
+        # uint8 DISENGAGED = 5
+        # uint8 NOT_READY = 6
+        if self.vehicle_states.full():
+            self.vehicle_states.get()
+        self.vehicle_states.put(msg.mode)
 
     def step_objects(self, msg: TrackedObjects, current_step):
         """Process objects in current frame"""
@@ -159,6 +186,8 @@ class BaseTracker:
         ego_transforms = list(self.ego_transforms.queue)
         ego_velocities = list(self.ego_velocities.queue)
         ego_timestamps = list(self.ego_timestamps.queue)
+        operational_modes = list(self.operation_modes.queue)
+        vehicle_statuses = list(self.vehicle_states.queue)
 
         neighbouring_objects = list(self.neighbouring_objects.queue)
         
@@ -186,11 +215,15 @@ class BaseTracker:
             "ego_history": {
                 "transforms": ego_transforms[:self.trace_back_step],
                 "velocities": ego_velocities[:self.trace_back_step],
-                "timestamps": ego_timestamps[:self.trace_back_step]
+                "timestamps": ego_timestamps[:self.trace_back_step],
+                "operational_modes": operational_modes[:self.trace_back_step],
+                "vehicle_statuses": vehicle_statuses[:self.trace_back_step]
             },
             "ego_future": {
                 "transforms": ego_transforms[self.trace_back_step:],
                 "velocities": ego_velocities[self.trace_back_step:],
-                "timestamps": ego_timestamps[self.trace_back_step:]
+                "timestamps": ego_timestamps[self.trace_back_step:],
+                "operational_modes": operational_modes[self.trace_back_step:],
+                "vehicle_statuses": vehicle_statuses[self.trace_back_step:]
             }
         }

@@ -32,6 +32,8 @@ class BagExtractor:
             "global_plan": "/planning/mission_planning/route",
             "local_plan": "/planning/scenario_planning/trajectory",
             "traffic_light": "/perception/traffic_light_recognition/traffic_signals",
+            "operation_mode": "/api/operation_mode/state", # identify if we have launch start in autoware
+            "vehicle_state": "/vehicle/status/control_mode" # identify if we are manually driving
         }
 
         self.vehicle_params = self.get_vehicle_parameters()
@@ -188,6 +190,10 @@ class BagExtractor:
             return self.map_manager.set_global_path(msg)
         elif topic_name == self.topics["traffic_light"]:
             return self.map_manager.step_traffic_light_message(msg)
+        elif topic_name == self.topics["operation_mode"]:
+            return self.object_tracker.step_operation_mode(msg)
+        elif topic_name == self.topics["vehicle_state"]:
+            return self.object_tracker.step_vehicle_state(msg)
 
     def extract_data(self):
         """Main extraction loop"""
@@ -220,7 +226,8 @@ class BagExtractor:
                                   "history_trajectories_transform_list", "future_trajectories_transform_list",
                                   "history_trajectories_speed_list", "future_trajectories_speed_list",
                                    "routes", "nearby_lanelets_ids", "associated_traffic_light_ids",
-                                   "current_traffic_light_status"]
+                                   "current_traffic_light_status", "history_operation_modes", "history_vehicle_statuses",
+                                   "future_operation_modes", "future_vehicle_statuses"]
                 self.extracted_data[frame] = {}
                 for key in selected_keys:
                     self.extracted_data[frame][key] = return_data_dict[key]

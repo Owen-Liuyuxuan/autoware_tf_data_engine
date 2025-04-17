@@ -227,7 +227,11 @@ class BaseStepEngine:
             "future_trajectories_speed_list": [
                 tracker_outputs["ego_future"]["velocities"][i][0]
                 for i in range(len(tracker_outputs["ego_future"]["velocities"]))
-            ]
+            ],
+            "history_operation_modes": tracker_outputs["ego_history"]["operational_modes"],
+            "history_vehicle_statuses": tracker_outputs["ego_history"]["vehicle_statuses"],
+            "future_operation_modes": tracker_outputs["ego_future"]["operational_modes"],
+            "future_vehicle_statuses": tracker_outputs["ego_future"]["vehicle_statuses"],
         }
 
         return data_dict
