@@ -6,7 +6,7 @@ import subprocess
 import signal
 import os
 import datetime
-from autoware_auto_planning_msgs.msg import Route  # Assuming this is the message type for the 
+from autoware_perception_msgs.msg import PredictedObjects
 from tier4_planning_msgs.msg import RouteState
 import time
 
@@ -31,6 +31,8 @@ class BagRecorder(Node):
         self.recorder_process = None
         self.recording_active = False
         self.current_bag_path = None
+        self.objects_appeared = False
+        self.objects_get_clear = False
         
         
         self.route_state_subscription = self.create_subscription(
@@ -39,20 +41,39 @@ class BagRecorder(Node):
             self.route_state_callback,
             10
         )
+        self.object_subcription = self.create_subscription(
+            PredictedObjects,
+            "/perception/object_recognition/objects",
+            self.object_callback,
+            10
+        )
 
         self.get_logger().info('Bag recorder initialized. Waiting for route updates...')
     
     
     def route_state_callback(self, msg:RouteState):
-        if msg.state == 4: # SET
+        if msg.state == 4 or msg.state == 5: # SET
             if self.recording_active:
-                self.stop_recording()
-            # Start a new recording
-            self.start_recording()
+                pass
+            else:
+                # Start a new recording
+                self.start_recording()
         else:
             if self.recording_active:
                 self.stop_recording()
 
+    def object_callback(self, msg:PredictedObjects):
+        number_objects = len(msg.objects)
+        if number_objects > 3:
+            self.objects_appeared = True
+        
+        if self.objects_appeared and number_objects == 0:
+            self.objects_appeared = False
+            self.get_logger().info("the objects get cleared, lets re-recording")
+            ## objects get cleared, 
+            if self.recording_active:
+                self.stop_recording()
+                self.start_recording()
     
     def start_recording(self):
         """Start a new rosbag recording"""

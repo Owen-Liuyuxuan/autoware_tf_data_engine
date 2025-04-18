@@ -44,6 +44,7 @@ class BagExtractor:
         self.key_frame_step = 5  # Step size for key frames
         self.ego_state_skip_frame = 5
         self.ego_state_small_counter = 0
+        self.ego_last_pose = None
 
         # if the bag path is a directory, use the directory name as the bag_name
         print(bag_path)
@@ -173,6 +174,20 @@ class BagExtractor:
         """Extract current vehicle position"""
         # Implement current position extraction logic
         # Example: x, y, z, orientation
+        if self.ego_last_pose is None:
+            self.ego_last_pose = msg.pose.pose.position
+        else:
+            current_pos = msg.pose.pose.position
+            distance_squared = (current_pos.x - self.ego_last_pose.x) ** 2 + \
+                        (current_pos.y - self.ego_last_pose.y) ** 2
+            if distance_squared > 10 ** 2:
+                print(distance_squared, current_pos, self.ego_last_pose)
+                ## sudden changed in position, especially for re-localization and simulation
+                ## we will end the process
+                self.save_results()
+                exit()
+            self.ego_last_pose = current_pos
+
         if (self.ego_state_small_counter+1) % self.ego_state_skip_frame == 0:
             self.ego_state_small_counter = 0
             return self.step_engine.process_ego(msg)
