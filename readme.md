@@ -99,6 +99,7 @@ Json file structure:
     history_trajectories_speed_list: [N_h, 1], past speed of the vehicle in the world frame. N=10,
     future_trajectories_speed_list: [N_f, 3], future speed of the vehicle in the world frame. N=30,
     routes: [], list of lanelet2 id that is route of the vehicle in the neighborhood.
+    nearby_drivable_path: [], list of lanelet2 id that are drivable according to the global path in the neighborhood.
     nearby_lanelets_ids: [], list of lanelet2 id that is nearby the vehicle in the neighborhood.
     associated_traffic_light_ids: [], each lanelet has one corresponding traffic light id, unless the id is -1.
     current_traffic_light_status:{  # latest perception traffic_light
