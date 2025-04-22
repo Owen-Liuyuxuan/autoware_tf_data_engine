@@ -240,7 +240,7 @@ class BagExtractor:
                 selected_keys = ["frame", "objects",
                                   "history_trajectories_transform_list", "future_trajectories_transform_list",
                                   "history_trajectories_speed_list", "future_trajectories_speed_list",
-                                   "routes", "nearby_lanelets_ids", "associated_traffic_light_ids",
+                                   "routes", "nearby_drivable_path", "nearby_lanelets_ids", "associated_traffic_light_ids",
                                    "current_traffic_light_status", "history_operation_modes", "history_vehicle_statuses",
                                    "future_operation_modes", "future_vehicle_statuses"]
                 self.extracted_data[frame] = {}

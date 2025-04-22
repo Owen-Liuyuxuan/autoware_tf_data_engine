@@ -93,6 +93,7 @@ class MapManager:
         # self.routing_graph = lanelet2.routing.RoutingGraph(self.map_object, traffic_rules)
 
         self.global_path = []
+        self.drivable_paths = []
         self.local_map_range = local_map_range
 
         self.traffic_light_messages = Queue(look_ahead_step)
@@ -128,7 +129,15 @@ class MapManager:
         return lights[0].id
 
     def set_global_path(self, msgs:LaneletRoute):
-        self.global_path = [segment.preferred_primitive.id for segment in msgs.segments]
+        self.global_prefered_path = []
+        self.drivable_paths = []
+        for segment in msgs.segments:
+            self.global_path.append(segment.preferred_primitive.id)
+            for primitive in segment.primitives:
+                if primitive.id in self.drivable_paths:
+                    print(f"{primitive.id} reappear")
+                self.drivable_paths.append(primitive.id)
+
 
     def fetch_local_map(self, position:Pose):
         """This methods should return the map elements near the position, and also return nearby global routes"""
@@ -150,5 +159,10 @@ class MapManager:
             if lanelet_id in nearby_lanelets_ids:
                 nearby_global_path.append(lanelet_id)
 
-        return {"map_elements": nearby_lanelets, "routes": nearby_global_path, "nearby_lanelets_ids": nearby_lanelets_ids, 
+        nearby_drivable_path = []
+        for lanelet_id in self.drivable_paths:
+            if lanelet_id in nearby_lanelets_ids:
+                nearby_drivable_path.append(lanelet_id)
+
+        return {"map_elements": nearby_lanelets, "routes": nearby_global_path, "nearby_drivable_path": nearby_drivable_path, "nearby_lanelets_ids": nearby_lanelets_ids, 
                 "associated_traffic_light_ids": associated_traffic_light_ids, "current_traffic_light_status": current_traffic_light_status}

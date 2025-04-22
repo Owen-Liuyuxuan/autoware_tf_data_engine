@@ -80,7 +80,7 @@ class SceneVisualizer:
 
         # Draw map elements
         if "map_elements" in data_dict:
-            self._draw_map_elements(data_dict["map_elements"], data_dict.get("routes", []))
+            self._draw_map_elements(data_dict["map_elements"], data_dict.get("routes", []), data_dict.get("nearby_drivable_path", []))
 
         # Draw ego trajectory
         self._draw_ego_trajectory(data_dict["history_trajectories"], data_dict["future_trajectories"])
@@ -93,11 +93,16 @@ class SceneVisualizer:
 
         pygame.display.flip()
 
-    def _draw_map_elements(self, map_elements: List, routes: List):
+    def _draw_map_elements(self, map_elements: List, routes: List, drivable_path: List):
         """Draw map elements"""
         for element in map_elements:
             # if element.attributes["subtype"] == "road":
-            color = Colors.GREEN if element.id in routes else Colors.GRAY
+            if element.id in routes:
+                color = Colors.GREEN
+            elif element.id in drivable_path:
+                color = Colors.BLUE
+            else:
+                color = Colors.GRAY
             width = 2 if element.id in routes else 1
             
             # Draw left boundary
