@@ -57,10 +57,25 @@ class BagExtractor:
             self.bag_name = os.path.splitext(os.path.basename(bag_path))[0]  # Extract the bag name without extension
         print(f"bag_name={self.bag_name}")
 
-        # Storage for extracted data
-        self.extracted_data = {}
-        self.extracted_data["vehicle_params"] = self.vehicle_params
-        self.extracted_data["lanelet2_map"] = map_path
+        # Storage for extracted data (new compact format)
+        self.extracted_data = {
+            "metadata": {
+                "lanelet2_map": map_path,
+                "vehicle_params": self.vehicle_params,
+                "start_timestamp": None,
+                "end_timestamp": None,
+                "time_step": None
+            },
+            "ego_states": [],
+            "object_detections": [],
+            "traffic_lights": [],
+            "key_frames": []
+        }
+        
+        # Track timestamps for metadata
+        self.first_timestamp = None
+        self.last_timestamp = None
+        self.timestamps = []
 
         self.map_manager = MapManager(map_path)
         self.object_tracker = BaseTracker(self.trace_back_step, self.look_ahead_steps)
@@ -204,7 +219,7 @@ class BagExtractor:
         elif topic_name == self.topics["global_plan"]:
             return self.map_manager.set_global_path(msg)
         elif topic_name == self.topics["traffic_light"]:
-            return self.map_manager.step_traffic_light_message(msg)
+            return self.map_manager.step_traffic_light_message(msg, self.object_tracker.current_step)
         elif topic_name == self.topics["operation_mode"]:
             return self.object_tracker.step_operation_mode(msg)
         elif topic_name == self.topics["vehicle_state"]:
@@ -236,28 +251,60 @@ class BagExtractor:
             # Process the message
             return_data_dict = self.process_message(topic_name, msg)
             if return_data_dict is not None:
-                frame = return_data_dict["frame"]
-                selected_keys = ["frame", "objects",
-                                  "history_trajectories_transform_list", "future_trajectories_transform_list",
-                                  "history_trajectories_speed_list", "future_trajectories_speed_list",
-                                   "routes", "nearby_drivable_path", "nearby_lanelets_ids", "associated_traffic_light_ids",
-                                   "current_traffic_light_status", "history_operation_modes", "history_vehicle_statuses",
-                                   "future_operation_modes", "future_vehicle_statuses"]
-                self.extracted_data[frame] = {}
-                for key in selected_keys:
-                    self.extracted_data[frame][key] = return_data_dict[key]
+                # This is a key frame - store it
+                key_frame_data = {
+                    "step": return_data_dict["step"],
+                    "timestamp": return_data_dict["timestamp"],
+                    "routes": return_data_dict.get("routes", []),
+                    "nearby_drivable_path": return_data_dict.get("nearby_drivable_path", []),
+                    "nearby_lanelets_ids": return_data_dict.get("nearby_lanelets_ids", []),
+                    "associated_traffic_light_ids": return_data_dict.get("associated_traffic_light_ids", [])
+                }
+                self.extracted_data["key_frames"].append(key_frame_data)
+                
+                # Track timestamps
+                if return_data_dict["timestamp"] is not None:
+                    if self.first_timestamp is None:
+                        self.first_timestamp = return_data_dict["timestamp"]
+                    self.last_timestamp = return_data_dict["timestamp"]
+                    self.timestamps.append(return_data_dict["timestamp"])
 
         
 
 
     def save_results(self):
-        """Save extracted data to JSON files"""
+        """Save extracted data to JSON files in new compact format"""
         try:
-            # Save each data type to a separate file
-            with open(os.path.join(self.output_path, f"cache_{self.bag_name}.json"), "w") as f:
+            # Get timestamped data from tracker
+            timestamped_data = self.object_tracker.get_all_timestamped_data()
+            
+            # Update extracted data with timestamped ego states and object detections
+            self.extracted_data["ego_states"] = timestamped_data["ego_states"]
+            self.extracted_data["object_detections"] = timestamped_data["object_detections"]
+            
+            # Get traffic light data from map manager
+            self.extracted_data["traffic_lights"] = self.map_manager.get_all_traffic_light_data()
+            
+            # Calculate metadata
+            if self.first_timestamp is not None and self.last_timestamp is not None:
+                self.extracted_data["metadata"]["start_timestamp"] = self.first_timestamp
+                self.extracted_data["metadata"]["end_timestamp"] = self.last_timestamp
+                
+                # Calculate average time step
+                if len(self.timestamps) > 1:
+                    time_diffs = [self.timestamps[i+1] - self.timestamps[i] 
+                                 for i in range(len(self.timestamps)-1)]
+                    self.extracted_data["metadata"]["time_step"] = sum(time_diffs) / len(time_diffs)
+            
+            # Save to JSON file
+            output_file = os.path.join(self.output_path, f"cache_{self.bag_name}.json")
+            with open(output_file, "w") as f:
                 json.dump(self.extracted_data, f, indent=2)
                 
-            print(f"Data successfully saved to {self.output_path}")
+            print(f"Data successfully saved to {output_file}")
+            print(f"  - Ego states: {len(self.extracted_data['ego_states'])}")
+            print(f"  - Object detections: {len(self.extracted_data['object_detections'])}")
+            print(f"  - Key frames: {len(self.extracted_data['key_frames'])}")
         except Exception as e:
             print(f"Error saving results: {str(e)}")
             raise

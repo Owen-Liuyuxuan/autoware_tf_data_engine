@@ -9,6 +9,7 @@ from geometry_msgs.msg import Pose
 from queue import Queue
 
 import lanelet2
+from typing import List, Dict
 from autoware_lanelet2_extension_python.utility import load_info_from_yaml, MapProjectorInfo
 from autoware_lanelet2_extension_python.projection import MGRSProjector, TransverseMercatorProjector
 from autoware_perception_msgs.msg import TrafficLightGroupArray
@@ -74,7 +75,7 @@ def get_lanelet2_projector(projector_info: MapProjectorInfo):
         return lanelet2.projection.LocalCartesianProjector(origin)
 
 class MapManager:
-    def __init__(self, map_path, local_map_range=80.0, look_ahead_step=30):
+    def __init__(self, map_path, local_map_range=150.0, look_ahead_step=80):
         self.map_path = map_path
         self.look_ahead_step = look_ahead_step
 
@@ -100,8 +101,19 @@ class MapManager:
         self.latest_access = -1
 
         self.latest_traffic_light_messages = {}
+        
+        # Store timestamped traffic light data (new compact format)
+        # Dictionary keyed by step for O(1) lookup and easy replacement
+        self.traffic_light_history: Dict[int, Dict] = {}
+        self.current_step = -1
 
-    def step_traffic_light_message(self, msg:TrafficLightGroupArray):
+    def step_traffic_light_message(self, msg:TrafficLightGroupArray, current_step: int = None):
+        """Process traffic light message and store with timestamp"""
+        timestamp = msg.stamp.sec + msg.stamp.nanosec * 1e-9
+        
+        if current_step is not None:
+            self.current_step = current_step
+        
         data = dict()
         data["stamp"] = msg.stamp
         data["elements"] = {}
@@ -116,10 +128,26 @@ class MapManager:
                     "status": element.status,
                     "confidence": element.confidence
                 })
+        
+        # Store in queue for backward compatibility
         if self.traffic_light_messages.full():
             self.latest_traffic_light_messages = self.traffic_light_messages.get()
 
         self.traffic_light_messages.put(data["elements"])
+        
+        # Store timestamped data (new compact format)
+        # Dictionary keyed by step - automatically replaces existing entry if step already exists
+        # This ensures we only preserve the most recent traffic light status for each step
+        self.traffic_light_history[self.current_step] = {
+            "step": self.current_step,
+            "timestamp": timestamp,
+            "status": data["elements"]
+        }
+    
+    def get_all_traffic_light_data(self) -> List[Dict]:
+        """Get all timestamped traffic light data as an ordered list (sorted by step)"""
+        # Convert dictionary to list and sort by step
+        return sorted(self.traffic_light_history.values(), key=lambda x: x["step"])
 
     
     def _get_traffic_light(self, lanelet):

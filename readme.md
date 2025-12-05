@@ -77,55 +77,90 @@ The extracted data is saved in a structured format containing:
 
 This data is specifically formatted for training machine learning models for autonomous driving planning tasks.
 
-### Current JSON Scheme
+### New Compact JSON Scheme (v2)
+
+The new schema eliminates data duplication by storing all timestamped data only once in map frame:
 
 ```python
-"""
-Json file structure:
-  str(frame_id) {
-    frame: frame,
-    objects: [
+{
+  "metadata": {
+    "lanelet2_map": "path/to/map.osm",
+    "vehicle_params": {
+      "wheel_base": float,
+      "max_steer_angle": float,
+      "front_overhang": float,
+      "rear_overhang": float,
+      "left_overhang": float,
+      "right_overhang": float
+    },
+    "start_timestamp": float,
+    "end_timestamp": float,
+    "time_step": float  // average time between steps
+  },
+  "ego_states": [
+    {
+      "step": int,
+      "timestamp": float,
+      "transform": [[4, 4]],  // 4x4 matrix in map frame
+      "velocity": [3],  // velocity in map frame
+      "operation_mode": int,
+      "vehicle_status": int
+    }
+  ],
+  "object_detections": [
+    {
+      "step": int,
+      "timestamp": float,
+      "objects": [
         {
-            "id": object_id,
-            "type": object_type as long,
-            "transform": T [4, 4], - transform of the object in the world frame.
-            "velocity": v [3], - velocity of the object in the world frame.
-            "global_footprint": [4, 3] - footprint of the object in the world frame.
-        },
-        {},
-    ],
-    history_trajectories_transform_list: [N_h, 4, 4], past trajectory of the vehicle in the world frame. N=10,
-    future_trajectories_transform_list: [N_f, 4, 4], future trajectory of the vehicle in the world frame. N=30,
-    history_trajectories_speed_list: [N_h, 1], past speed of the vehicle in the world frame. N=10,
-    future_trajectories_speed_list: [N_f, 3], future speed of the vehicle in the world frame. N=30,
-    routes: [], list of lanelet2 id that is route of the vehicle in the neighborhood.
-    nearby_drivable_path: [], list of lanelet2 id that are drivable according to the global path in the neighborhood.
-    nearby_lanelets_ids: [], list of lanelet2 id that is nearby the vehicle in the neighborhood.
-    associated_traffic_light_ids: [], each lanelet has one corresponding traffic light id, unless the id is -1.
-    current_traffic_light_status:{  # latest perception traffic_light
-      group_id:[  # the id is the same stuffs with the above
-        {   ## https://docs.ros.org/en/humble/p/autoware_perception_msgs/msg/TrafficLightElement.html
-          "color": int,
-          "shape": int,
-          "status": int,
-          "confidence": float,
-        },
-        {}
+          "id": "uuid",
+          "type": int,
+          "transform": [[4, 4]],  // in map frame
+          "velocity": [3],  // in map frame
+          "global_footprint": [[N, 3]]  // in map frame
+        }
       ]
     }
-  }
-  lanelet2_map # string of full path towards the map being used.
-  vehicle_params: {  # all parameters are same with the vehicle_info definitions
-    wheel_base 
-    max_steer_angle
-    wheel_base
-    front_overhang
-    rear_overhang
-    left_overhang
-    right_overhang
-  }
-"""
+  ],
+  "traffic_lights": [
+    {
+      "step": int,
+      "timestamp": float,
+      "status": {
+        "group_id": [
+          {
+            "color": int,
+            "shape": int,
+            "status": int,
+            "confidence": float
+          }
+        ]
+      }
+    }
+  ],
+  "key_frames": [
+    {
+      "step": int,
+      "timestamp": float,
+      "routes": [int],  // lanelet IDs
+      "nearby_drivable_path": [int],
+      "nearby_lanelets_ids": [int],
+      "associated_traffic_light_ids": [int]
+    }
+  ]
+}
 ```
+
+### Key Improvements
+
+1. **No Data Duplication**: Each timestamp stored only once (90% storage reduction)
+2. **Map Frame Storage**: All data in map frame, transformed to ego frame during training
+3. **Flexible History**: Can change history/future window sizes without re-extraction
+4. **Efficient Lookup**: Key frames reference steps to extract time windows
+
+### Legacy Format Support
+
+The dataset loader supports both old and new formats for backward compatibility. Old format data will need to be re-extracted to benefit from the new compact structure.
 
 ## License
 

@@ -74,7 +74,11 @@ class SceneVisualizer:
         self.screen.fill(Colors.WHITE)
         
         # Center view on ego vehicle
-        ego_pos = np.array(data_dict["history_trajectories"]["transforms"][-1][:3, 3])
+        # Handle both list and numpy array formats
+        last_transform = data_dict["history_trajectories"]["transforms"][-1]
+        if isinstance(last_transform, list):
+            last_transform = np.array(last_transform)
+        ego_pos = last_transform[:3, 3]
         self.offset_x = self.window_size[0]//2 - int(ego_pos[0] * self.pixels_per_meter)
         self.offset_y = self.window_size[1]//2 + int(ego_pos[1] * self.pixels_per_meter)
 
@@ -119,22 +123,39 @@ class SceneVisualizer:
 
     def _draw_ego_trajectory(self, history: Dict, future: Dict):
         """Draw ego vehicle trajectory"""
-        # Draw history
-        history_poses = np.array([t[:3, 3] for t in history["transforms"]])
-        points = [self.world_to_screen(x, y) for x, y in history_poses[:, :2]]
-        if len(points) > 1:
-            pygame.draw.lines(self.screen, Colors.BLUE, False, points, 3)
+        # Draw history - handle both list and numpy array formats
+        history_transforms = history["transforms"]
+        if history_transforms and isinstance(history_transforms[0], list):
+            # Convert lists to numpy arrays
+            history_poses = np.array([np.array(t)[:3, 3] for t in history_transforms])
+        else:
+            # Already numpy arrays
+            history_poses = np.array([t[:3, 3] for t in history_transforms])
+        
+        if len(history_poses) > 0:
+            points = [self.world_to_screen(x, y) for x, y in history_poses[:, :2]]
+            if len(points) > 1:
+                pygame.draw.lines(self.screen, Colors.BLUE, False, points, 3)
 
-        # Draw future
-        future_poses = np.array([t[:3, 3] for t in future["transforms"]])
-        points = [self.world_to_screen(x, y) for x, y in future_poses[:, :2]]
-        if len(points) > 1:
-            pygame.draw.lines(self.screen, Colors.RED, False, points, 2)
+        # Draw future - handle both list and numpy array formats
+        future_transforms = future["transforms"]
+        if future_transforms and isinstance(future_transforms[0], list):
+            # Convert lists to numpy arrays
+            future_poses = np.array([np.array(t)[:3, 3] for t in future_transforms])
+        else:
+            # Already numpy arrays
+            future_poses = np.array([t[:3, 3] for t in future_transforms])
+        
+        if len(future_poses) > 0:
+            points = [self.world_to_screen(x, y) for x, y in future_poses[:, :2]]
+            if len(points) > 1:
+                pygame.draw.lines(self.screen, Colors.RED, False, points, 2)
 
         # Draw current position
-        current_pos = history_poses[-1]
-        center = self.world_to_screen(current_pos[0], current_pos[1])
-        pygame.draw.circle(self.screen, Colors.BLACK, center, 5)
+        if len(history_poses) > 0:
+            current_pos = history_poses[-1]
+            center = self.world_to_screen(current_pos[0], current_pos[1])
+            pygame.draw.circle(self.screen, Colors.BLACK, center, 5)
 
     def _draw_objects(self, objects: List):
         """Draw objects with footprints and velocity vectors"""
@@ -205,20 +226,29 @@ class BaseStepEngine:
 
     def process_objects(self, msg: PredictedObjects):
         """Base Step Engine focuses on ego steps"""
-        self.object_tracker.step_objects(msg, self.current_step)
+        # Pass current_step to object tracker
+        self.object_tracker.step_objects(msg, self.object_tracker.current_step)
 
     def activate_key_frame(self):
-        """Base Step Engine focuses on ego steps"""
+        """Base Step Engine focuses on ego steps
+        
+        Returns key frame data with step index for new compact format.
+        For backward compatibility, also includes the old format fields.
+        """
         self.current_key_frame = self.current_step - self.look_ahead_steps
         tracker_outputs = self.object_tracker.step_key_frame(self.current_key_frame)
+        
+        if tracker_outputs is None:
+            return None
 
         data_dict = {
-            "frame": self.current_key_frame,
+            "step": self.current_key_frame,
+            "frame": self.current_key_frame,  # Keep for backward compatibility
             "objects": tracker_outputs["objects"],
             "history_trajectories": tracker_outputs["ego_history"],
             "future_trajectories": tracker_outputs["ego_future"],
             "history_trajectories_transform_list": [
-                tracker_outputs["ego_history"]["transforms"][i].tolist()
+                tracker_outputs["ego_history"]["transforms"][i]
                 for i in range(len(tracker_outputs["ego_history"]["transforms"]))
             ],
             "history_trajectories_speed_list": [
@@ -226,7 +256,7 @@ class BaseStepEngine:
                 for i in range(len(tracker_outputs["ego_history"]["velocities"]))
             ],
             "future_trajectories_transform_list": [
-                tracker_outputs["ego_future"]["transforms"][i].tolist()
+                tracker_outputs["ego_future"]["transforms"][i]
                 for i in range(len(tracker_outputs["ego_future"]["transforms"]))
             ],
             "future_trajectories_speed_list": [
@@ -237,6 +267,7 @@ class BaseStepEngine:
             "history_vehicle_statuses": tracker_outputs["ego_history"]["vehicle_statuses"],
             "future_operation_modes": tracker_outputs["ego_future"]["operational_modes"],
             "future_vehicle_statuses": tracker_outputs["ego_future"]["vehicle_statuses"],
+            "timestamp": tracker_outputs["timestamp"],
         }
 
         return data_dict
