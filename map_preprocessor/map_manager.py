@@ -101,7 +101,7 @@ class MapManager:
         self.latest_access = -1
 
         self.latest_traffic_light_messages = {}
-        
+
         # Store timestamped traffic light data (new compact format)
         # Dictionary keyed by step for O(1) lookup and easy replacement
         self.traffic_light_history: Dict[int, Dict] = {}
