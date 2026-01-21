@@ -189,7 +189,7 @@ class MultiCameraMapExtractor:
         
         camera_message_counts = defaultdict(int)
         sample_count = 0
-        max_samples = 2000
+        max_samples = 10000
         
         print("Sampling bag to detect active cameras...")
         while reader.has_next() and sample_count < max_samples:
